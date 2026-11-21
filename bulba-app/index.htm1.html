@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>🥔 Кликер Бульбы</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overscroll-behavior: none; }
+  body {
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #2c1810 0%, #4a2c1a 50%, #2c1810 100%);
+    color: #fff; overflow-x: hidden;
+  }
+  .game { max-width: 1200px; margin: 0 auto; padding: 15px; display: grid; grid-template-columns: 1fr 380px; gap: 15px; }
+  .header { grid-column: 1 / -1; text-align: center; }
+  .header h1 { font-size: 2em; text-shadow: 3px 3px 0 #000, 0 0 20px #ff9500; color: #ffcc00; }
+  .stats { display: flex; justify-content: center; gap: 20px; margin-top: 10px; font-size: 1.1em; flex-wrap: wrap; }
+  .stats b { color: #ffcc00; }
+
+  .click-area {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.3); border-radius: 20px;
+    position: relative; min-height: 420px; overflow: hidden;
+  }
+  #potato {
+    font-size: 170px; cursor: pointer; transition: transform 0.05s;
+    filter: drop-shadow(0 10px 20px rgba(255,150,0,0.5));
+    line-height: 1; display: flex; align-items: center; justify-content: center;
+  }
+  #potato:active { transform: scale(0.88); }
+  
+  /* Стиль для картинки внутри бульбы */
+  #potato img {
+    width: 250px; height: 250px; border-radius: 20px; border: 4px solid #ffcc00;
+    box-shadow: 0 0 30px #ffcc00; object-fit: cover; pointer-events: none;
+  }
+
+  .float-text {
+    position: absolute; color: #ffcc00; font-weight: bold; font-size: 1.4em;
+    pointer-events: none; animation: floatUp 1s ease-out forwards;
+    text-shadow: 2px 2px 0 #000; z-index: 10;
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-110px); }
+  }
+
+  /* ===== БАТЬКА ВЫПРЫГИВАЕТ ===== */
+  #batka {
+    position: fixed; bottom: -500px; left: 50%; transform: translateX(-50%);
+    width: 300px; z-index: 999; transition: bottom 0.4s ease-out;
+    filter: drop-shadow(0 0 30px #ffcc00); pointer-events: none;
+    border-radius: 20px; border: 4px solid #ffcc00;
+    box-shadow: 0 0 50px rgba(255, 204, 0, 0.8);
+  }
+  #batka.show { bottom: 10%; animation: shake 0.3s infinite; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(-50%) rotate(-3deg); }
+    50% { transform: translateX(-50%) rotate(3deg); }
+  }
+  #batka-text {
+    position: fixed; bottom: 50%; left: 50%; transform: translateX(-50%) scale(0);
+    font-size: 4.5em; font-weight: 900; color: #fff;
+    text-shadow: 4px 4px 0 #000, 0 0 30px #ff0000, 0 0 60px #ffcc00;
+    z-index: 1000; pointer-events: none; transition: transform 0.2s ease-out; letter-spacing: 5px;
+  }
+  #batka-text.show { transform: translateX(-50%) scale(1); animation: pulse 0.6s infinite alternate; }
+  @keyframes pulse {
+    from { transform: translateX(-50%) scale(1); }
+    to { transform: translateX(-50%) scale(1.15); }
+  }
+
+  .sidebar { display: flex; flex-direction: column; gap: 12px; }
+  .panel { background: rgba(0,0,0,0.4); border: 2px solid #ff9500; border-radius: 15px; padding: 12px; }
+  .panel h2 { color: #ffcc00; font-size: 1.1em; margin-bottom: 8px; border-bottom: 2px solid #ff950033; padding-bottom: 4px; }
+  .btn {
+    width: 100%; padding: 12px; margin-top: 6px; border: none; border-radius: 10px; cursor: pointer;
+    font-weight: bold; font-size: 1em; background: linear-gradient(135deg, #ff9500, #ffcc00);
+    color: #2c1810; transition: transform 0.1s;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; }
+  .btn small { display: block; font-weight: normal; font-size: 0.8em; }
+
+  .skins-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; max-height: 240px; overflow-y: auto; }
+  .skin {
+    background: rgba(255,255,255,0.08); border: 2px solid transparent; border-radius: 10px; padding: 6px;
+    cursor: pointer; text-align: center; font-size: 28px; line-height: 1; transition: all 0.15s;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; height: 70px;
+  }
+  .skin:active { transform: scale(1.08); }
+  .skin.active { border-color: #66ff66; background: rgba(102,255,102,0.15); }
+  .skin.locked { filter: grayscale(1) brightness(0.5); }
+  .skin .price-tag { display: block; font-size: 9px; margin-top: 2px; color: #ffcc00; }
+  .skin img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+
+  .promo-box { display: flex; gap: 6px; margin-top: 6px; }
+  .promo-box input { flex: 1; padding: 10px; border-radius: 10px; border: 2px solid #ffcc00; background: rgba(0,0,0,0.5); color: #fff; outline: none; }
+  #promoMsg { font-size: 0.85em; margin-top: 6px; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<div class="game">
+  <div class="header">
+    <h1>🥔 КЛИКЕР БУЛЬБЫ</h1>
+    <div class="stats">
+      <div>Бульба: <b id="bulbaCount">0</b></div>
+      <div>Клик: <b id="clickPower">1</b></div>
+      <div>В сек: <b id="perSec">0</b></div>
+    </div>
+  </div>
+
+  <div class="click-area" id="clickArea">
+    <div id="potato">🥔</div>
+  </div>
+
+  <div class="sidebar">
+    <div class="panel">
+      <h2>⚡ Прокачка</h2>
+      <button class="btn" id="upClick">Сила клика +1<small id="upClickCost">Цена: 50</small></button>
+      <button class="btn" id="upAuto">Авто +1/сек<small id="upAutoCost">Цена: 100</small></button>
+      <button class="btn" id="upMulti">Множитель x1.5<small id="upMultiCost">Цена: 500</small></button>
+    </div>
+    <div class="panel">
+      <h2>🎨 Скины</h2>
+      <div class="skins-grid" id="skinsGrid"></div>
+    </div>
+    <div class="panel">
+      <h2>🎁 Промокод</h2>
+      <div class="promo-box">
+        <input type="text" id="promoInput" placeholder="Промокод...">
+        <button class="btn" style="width:auto;margin:0;padding:10px 16px;" id="promoBtn">OK</button>
+      </div>
+      <div id="promoMsg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- БАТЬКА -->
+<img id="batka" src="batka.png" alt="Батька">
+<div id="batka-text">БУЛЬБА!</div>
+
+<script>
+const state = { 
+  bulba: 0, clickPower: 1, perSec: 0, clickLevel: 0, autoLevel: 0, multiLevel: 0, 
+  activeSkin: 'classic', unlockedSkins: ['classic'], usedPromos: [], totalClicks: 0
+};
+
+const SKINS = [
+  { id: 'classic', name: 'Классик', emoji: '🥔', style: '', price: 0 },
+  { id: 'small',   name: 'Малыш',   emoji: '🥔', style: 'font-size:90px;', price: 100 },
+  { id: 'big',     name: 'Гигант',  emoji: '🥔', style: 'font-size:230px;', price: 500 },
+  { id: 'gold',    name: 'Золотая', emoji: '🥔', style: 'filter:drop-shadow(0 0 25px gold) sepia(1) saturate(6) hue-rotate(5deg);', price: 1000 },
+  { id: 'green',   name: 'Зелёная', emoji: '🥔', style: 'filter:hue-rotate(90deg) saturate(2);', price: 1500 },
+  { id: 'blue',    name: 'Синяя',   emoji: '🥔', style: 'filter:hue-rotate(200deg) saturate(2);', price: 2000 },
+  { id: 'red',     name: 'Огненная',emoji: '🥔', style: 'filter:hue-rotate(-50deg) saturate(3) brightness(1.2);', price: 3000 },
+  { id: 'ghost',   name: 'Призрак', emoji: '🥔', style: 'filter:opacity(0.5) drop-shadow(0 0 15px #aaddff);', price: 5000 },
+  { id: 'rainbow', name: 'Радуга',  emoji: '🥔', style: 'animation:rainbow 3s linear infinite;', price: 10000 },
+  { id: 'cosmic',  name: 'Космос',  emoji: '🌌', style: '', price: 20000 },
+  { id: 'diamond', name: 'Алмаз',   emoji: '💎', style: '', price: 50000 },
+  { id: 'crown',   name: 'Король',  emoji: '👑', style: '', price: 100000 },
+  { id: 'batka',   name: 'Батька',  emoji: '👨‍🌾', style: '', price: 250000, isImage: true }
+];
+
+const styleEl = document.createElement('style');
+styleEl.textContent = `@keyframes rainbow {0%{filter:hue-rotate(0) saturate(3);}100%{filter:hue-rotate(360deg) saturate(3);}}`;
+document.head.appendChild(styleEl);
+
+const $ = id => document.getElementById(id);
+const potatoEl = $('potato');
+const clickArea = $('clickArea');
+const batkaEl = $('batka');
+const batkaTextEl = $('batka-text');
+
+// Загрузка
+const saved = localStorage.getItem('bulbaGame');
+if (saved) Object.assign(state, JSON.parse(saved));
+const save = () => localStorage.setItem('bulbaGame', JSON.stringify(state));
+
+const clickCost = () => Math.floor(50 * Math.pow(1.15, state.clickLevel));
+const autoCost  = () => Math.floor(100 * Math.pow(1.15, state.autoLevel));
+const multiCost = () => Math.floor(500 * Math.pow(1.6, state.multiLevel));
+
+function updateUI() {
+  $('bulbaCount').textContent = Math.floor(state.bulba).toLocaleString('ru');
+  $('clickPower').textContent = state.clickPower.toFixed(1);
+  $('perSec').textContent = state.perSec.toFixed(1);
+  $('upClickCost').textContent = 'Цена: ' + clickCost();
+  $('upAutoCost').textContent = 'Цена: ' + autoCost();
+  $('upMultiCost').textContent = 'Цена: ' + multiCost();
+  $('upClick').disabled = state.bulba < clickCost();
+  $('upAuto').disabled = state.bulba < autoCost();
+  $('upMulti').disabled = state.bulba < multiCost();
+  renderSkins();
+}
+
+function renderSkins() {
+  const grid = $('skinsGrid');
+  grid.innerHTML = '';
+  SKINS.forEach(skin => {
+    const unlocked = state.unlockedSkins.includes(skin.id);
+    const div = document.createElement('div');
+    div.className = 'skin';
+    if (state.activeSkin === skin.id) div.classList.add('active');
+    if (!unlocked) div.classList.add('locked');
+    
+    // Картинка указывает просто на "batka.png" в папке с игрой
+    if (skin.isImage) {
+      div.innerHTML = `<img src="batka.png" alt="B"><span class="price-tag">${unlocked ? skin.name : skin.price + '🥔'}</span>`;
+    } else {
+      div.innerHTML = `${skin.emoji}<span class="price-tag">${unlocked ? skin.name : skin.price + '🥔'}</span>`;
+    }
+
+    div.onclick = () => {
+      if (state.unlockedSkins.includes(skin.id)) state.activeSkin = skin.id;
+      else if (state.bulba >= skin.price) {
+        state.bulba -= skin.price;
+        state.unlockedSkins.push(skin.id);
+        state.activeSkin = skin.id;
+      } else return;
+      applySkin(); updateUI(); save();
+    };
+    grid.appendChild(div);
+  });
+}
+
+function applySkin() {
+  const skin = SKINS.find(s => s.id === state.activeSkin) || SKINS[0];
+  
+  if (skin.isImage) {
+    potatoEl.innerHTML = `<img src="batka.png" alt="Батька">`;
+    potatoEl.style.cssText = '';
+  } else {
+    potatoEl.innerHTML = skin.emoji;
+    potatoEl.style.cssText = skin.style || '';
+    if (!skin.style.includes('font-size')) {
+      potatoEl.style.fontSize = skin.emoji === '🥔' ? '170px' : '150px';
+    }
+  }
+}
+
+function summonBatka() {
+  batkaEl.classList.add('show');
+  batkaTextEl.classList.add('show');
+  
+  const bonus = Math.max(1000, Math.floor(state.clickPower * 10));
+  state.bulba += bonus;
+  
+  const bonusEl = document.createElement('div');
+  bonusEl.className = 'float-text';
+  bonusEl.textContent = `+${bonus} 🥔 от Батьки!`;
+  bonusEl.style.color = '#66ff66'; bonusEl.style.fontSize = '2em';
+  bonusEl.style.left = '50%'; bonusEl.style.top = '30%';
+  clickArea.appendChild(bonusEl);
+  setTimeout(() => bonusEl.remove(), 1500);
+
+  updateUI(); save();
+
+  setTimeout(() => {
+    batkaEl.classList.remove('show');
+    batkaTextEl.classList.remove('show');
+  }, 2500);
+}
+
+function doClick(e) {
+  state.bulba += state.clickPower;
+  state.totalClicks++;
+  showFloat('+' + state.clickPower.toFixed(1), e);
+
+  if (state.totalClicks > 0 && state.totalClicks % 1000 === 0) {
+    summonBatka();
+  }
+  updateUI(); save();
+}
+
+function showFloat(text, e) {
+  const el = document.createElement('div');
+  el.className = 'float-text'; el.textContent = text;
+  const rect = clickArea.getBoundingClientRect();
+  const x = e && e.clientX ? e.clientX - rect.left : rect.width / 2;
+  const y = e && e.clientY ? e.clientY - rect.top : rect.height / 2;
+  el.style.left = x + 'px'; el.style.top = y + 'px';
+  clickArea.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+potatoEl.addEventListener('pointerdown', doClick);
+
+$('upClick').onclick = () => { const c = clickCost(); if (state.bulba < c) return; state.bulba -= c; state.clickLevel++; state.clickPower += 1; updateUI(); save(); };
+$('upAuto').onclick  = () => { const c = autoCost();  if (state.bulba < c) return; state.bulba -= c; state.autoLevel++;  state.perSec += 1;    updateUI(); save(); };
+$('upMulti').onclick = () => { const c = multiCost(); if (state.bulba < c) return; state.bulba -= c; state.multiLevel++; state.clickPower *= 1.5; state.perSec *= 1.5; updateUI(); save(); };
+
+setInterval(() => { if (state.perSec > 0) { state.bulba += state.perSec; updateUI(); } }, 1000);
+
+$('promoBtn').onclick = () => {
+  const input = $('promoInput'), msg = $('promoMsg');
+  const code = input.value.trim().toLowerCase();
+  if (code === 'bulba') {
+    if (state.usedPromos.includes('bulba')) { msg.textContent = '❌ Уже использован!'; msg.style.color = '#ff5555'; return; }
+    state.bulba += 50000;
+    if (!state.unlockedSkins.includes('gold')) state.unlockedSkins.push('gold');
+    state.usedPromos.push('bulba');
+    msg.textContent = '✅ +50 000 🥔 и скин «Золотая Бульба»!'; msg.style.color = '#66ff66';
+    input.value = ''; updateUI(); save();
+  } else if (code === 'batka') {
+    state.totalClicks = 990; 
+    msg.textContent = '👨‍🌾 Следующий клик вызовет Батьку!'; msg.style.color = '#66ff66';
+    input.value = '';
+  } else { msg.textContent = '❌ Неверный промокод'; msg.style.color = '#ff5555'; }
+};
+$('promoInput').addEventListener('keypress', e => { if (e.key === 'Enter') $('promoBtn').click(); });
+
+applySkin(); updateUI();
+</script>
+</body>
+</html>
